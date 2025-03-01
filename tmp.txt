@@ -1,0 +1,6 @@
+"document.onEvent(\".buttontest\", \"click\", [[\n            print(\"Button clicked!\")\n            -- Do more stuff here\n        ]])\n"
+
+Script execution error: <string>:1: attempt to call a non-function object
+stack traceback:
+	<string>:1: in main chunk
+	[G]: ?

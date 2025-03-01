@@ -1,6 +1,7 @@
 package processjtl
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -121,9 +122,21 @@ func ToRaylib(jtlcomps []interface{}) []CanvasObject {
 			continue
 		}
 
+		// Extract class and id directly from the component
+		class, _ := comp["class"].(string)
+		id, _ := comp["id"].(string)
+
 		content, _ := comp["Contents"].(string)
 		styles, _ := comp["style"].(string)
 		parsedStyles := ParseCSS(styles)
+
+		// Add class and id to parsed styles
+		if class != "" {
+			parsedStyles["class"] = class
+		}
+		if id != "" {
+			parsedStyles["id"] = id
+		}
 
 		width := int32(screenWidth * 0.25)
 		height := int32(screenHeight * 0.08)
@@ -131,6 +144,12 @@ func ToRaylib(jtlcomps []interface{}) []CanvasObject {
 		if element := CreateElement(key, content,
 			int32(margin), int32(yOffset),
 			width, height, parsedStyles); element != nil {
+
+			// Debug print
+			if baseEl, ok := element.(interface{ GetBaseElement() *BaseElement }); ok {
+				fmt.Printf("Created element with class: %s\n", baseEl.GetBaseElement().Class)
+			}
+
 			result = append(result, element.(CanvasObject))
 			yOffset += float32(height) + (screenHeight * 0.02)
 		}

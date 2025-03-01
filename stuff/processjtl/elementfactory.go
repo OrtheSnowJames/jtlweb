@@ -1,6 +1,8 @@
 package processjtl
 
 import (
+	"fmt"
+
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -30,16 +32,20 @@ func createButton(content string, x, y, width, height int32, styles map[string]s
 		sdl.Color{R: 100, G: 100, B: 100, A: 255},
 		nil) // Set onClick to nil initially
 
-	// Add class and id from styles if present
+	// Set class and id first
 	if class, ok := styles["class"]; ok {
 		button.Class = class
+		fmt.Printf("Setting button class to: %s\n", class)
 	}
 	if id, ok := styles["id"]; ok {
 		button.ID = id
 	}
 
+	// Then apply other styles
 	for key, value := range styles {
-		TranslateStyle(key+":"+value, button)
+		if key != "class" && key != "id" {
+			TranslateStyle(key+":"+value, button)
+		}
 	}
 	return button
 }

@@ -1,6 +1,8 @@
 package processjtl
 
 import (
+	"fmt"
+
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -87,6 +89,8 @@ func (b *Button) CheckClick() {
 	x, y, state := sdl.GetMouseState()
 	if state&sdl.ButtonLMask() != 0 {
 		if x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height {
+			fmt.Printf("Button clicked! Class: %s, ID: %s\n", b.Class, b.ID)
+			fmt.Printf("Sending click event to Lua API...\n")
 			executeEventHandler(&b.BaseElement, "click")
 		}
 	}

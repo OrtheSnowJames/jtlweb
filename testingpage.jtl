@@ -1,18 +1,12 @@
 >>>DOCTYPE=JTL
 
 >>>ENV;
-    >>>NAME=me
+    >>>NAME=JetBrainsMono
 >>>version=1.0;
 
 >>>BEGIN;
-    >class="main" derive="shop">p>Our Shop is a cool shop. We have a lot of cool stuff. Come and visit us at shop.shop;
+    >type="lua"; src="testinglua.lua">script>;
+    >class="buttonclass">button>Test Button;
 
-    >class="buttontest">button>Test Button;
-
-    >type="lua">script>
-        document.onEvent(".buttontest", "click", [[
-            print("Button clicked!")
-            -- Do more stuff here
-        ]])
-    ;
+    >style="font-family: JetBrainsMono;">p>helo;
 >>>END;

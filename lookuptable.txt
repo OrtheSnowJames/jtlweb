@@ -1,0 +1,101 @@
+
+text.go:
+- struct Text
+  - BaseElement (embedded)
+  - Content string
+  - FontSize int32
+- func NewText()
+- func Draw()
+- func CheckClick()
+- func SetFontFamily()
+
+sdl_context.go:
+- var Window *sdl.Window
+- var Renderer *sdl.Renderer
+- var Fonts map[string]*ttf.Font
+- const pathtoassets
+- const defaultFontSize
+- func InitSDL()
+- func CleanupSDL()
+- func GetExeDir()
+- func GetFont()
+
+processjtl.go:
+- var document []interface{}
+- var documentUpdate atomic.Bool
+- var documentMutex sync.RWMutex
+- var ObjectsMutex sync.Mutex
+- var luaState *lua.LState
+- struct Locker
+- func newLocker()
+- func Lock()
+- func Unlock()
+- func getDocumentElement()
+- func getObjects()
+- func extractScripts()
+- func updateDocument()
+- func getElement()
+- func setEventHandler()
+- func executeEventHandler()
+- func MakeWebview()
+- func luaTableToMap()
+
+layer.go:
+- func TranslateStyle()
+- func applyTextStyle()
+- func applyButtonStyle()
+- func applyTextFieldStyle()
+- type CanvasObject interface
+- var objects []CanvasObject
+- func ToRaylib()
+
+elementfactory.go:
+- type ElementCreator func()
+- var elementCreators map[string]ElementCreator
+- func RegisterElement()
+- func CreateElement()
+- func createButton()
+- func createTextField()
+- func createText()
+
+conversions.go:
+- func MapToLuaTable()
+- func convertToLuaValue()
+- func ParseCSS()
+
+button.go:
+- struct Button
+  - BaseElement (embedded)
+  - Text string
+  - Margin int32
+  - OnClick func()
+- func NewButton()
+- func Draw()
+- func GetBaseElement()
+- func CheckClick()
+
+jtltp.go:
+- func JtltpFetch()
+- struct jtltpServer
+- func NewJtltpServer()
+- func SendGood()
+- func SendBad()
+- func Send404()
+- func SendRaw()
+- func SendRawer()
+- func AwaitMessage()
+- func AwaitConnection()
+
+main.go:
+- type AppState int
+- var config map[string]interface{}
+- const StateInput, StateRendering
+- func main()
+- func readConf()
+- func drawInputState()
+- func drawRenderingState()
+
+Shared types across files:
+- interface UIElement
+- struct BaseElement
+- interface CanvasObject

@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"jtlweb/stuff/processjtl"
+	"jtlweb/stuff/shared"
+	"path/filepath"
+	"strings"
 	"os"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -12,6 +15,7 @@ import (
 type AppState int
 
 var config map[string]interface{}
+var openPath string
 
 const (
 	StateInput AppState = iota
@@ -39,6 +43,10 @@ func main() {
 
 	running := true
 	for running {
+		if shared.OpenPath != openPath {
+			shared.OpenPath = openPath
+			fmt.Printf("shared.OpenPath: %v\n", shared.OpenPath)
+		}
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch e := event.(type) {
 			case *sdl.QuitEvent:
@@ -63,6 +71,13 @@ func main() {
 						// Handle file loading
 						content, err := os.ReadFile(textField.Text)
 						if err == nil {
+							textField.Text, err = getFullPath(textField.Text)
+							if err != nil {
+								fmt.Println("Error getting full path: ", err)
+								continue
+							}
+							openPath = textField.Text
+							shared.OpenPath = openPath
 							winlock, objects = processjtl.MakeWebview(string(content))
 							if winlock != nil {
 							}
@@ -145,4 +160,25 @@ func drawRenderingState(objects []processjtl.CanvasObject) {
 		obj.Draw()
 		obj.CheckClick()
 	}
+}
+
+func getFullPath(inputPath string) (string, error) {
+	// Expand the user's home directory (~) to its full path
+	expandedPath := inputPath
+	if strings.HasPrefix(inputPath, "~") {
+		expandedPath = strings.Replace(inputPath, "~", os.Getenv("HOME"), 1)
+	}
+
+	// If the inputPath is not absolute, make it absolute
+	if !filepath.IsAbs(expandedPath) {
+		// Convert the path to an absolute path
+		absPath, err := filepath.Abs(expandedPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path: %v", err)
+		}
+		return absPath, nil
+	}
+
+	// If the inputPath is already absolute, return it as is
+	return expandedPath, nil
 }

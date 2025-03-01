@@ -1,7 +1,6 @@
 package processjtl
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -66,7 +65,6 @@ func convertToLuaValue(L *lua.LState, value interface{}) lua.LValue {
 }
 
 func ParseCSS(css string) map[string]string {
-	fmt.Printf("css: %v\n", css)
 	result := make(map[string]string)
 
 	// Regex to match CSS properties.
@@ -74,7 +72,6 @@ func ParseCSS(css string) map[string]string {
 
 	// Find all properties within the CSS string.
 	propMatches := propertyRegex.FindAllStringSubmatch(css, -1)
-	fmt.Printf("matches: %v\n", propMatches)
 	for _, propMatch := range propMatches {
 		key := strings.TrimSpace(propMatch[1])
 		value := strings.TrimSpace(propMatch[2])

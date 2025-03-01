@@ -2,11 +2,15 @@ package processjtl
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"jtlweb/stuff/shared"
 
 	"github.com/OrtheSnowJames/jtl"
 	lua "github.com/yuin/gopher-lua"
@@ -92,6 +96,14 @@ func getObjects(L *lua.LState) int {
 	return 1
 }
 
+// Will be updated later for jtltp (connection) support
+func GetRelToOpenPath(relpath string) string {
+	// Get the directory containing the current JTL file
+	dir := filepath.Dir(shared.OpenPath)
+	// Join the directory with the relative path
+	return filepath.Join(dir, relpath)
+}
+
 // Extract all script contents from JTL document
 func extractScripts(jtlcomps []interface{}) string {
 	var scripts strings.Builder
@@ -102,8 +114,19 @@ func extractScripts(jtlcomps []interface{}) string {
 		}
 
 		if key, ok := comp["KEY"].(string); ok && key == "script" {
-			if content, ok := comp["Contents"].(string); ok {
+			if content, ok := comp["Contents"].(string); ok && (content != "" && content != "\n") {
 				scripts.WriteString(content)
+				scripts.WriteString("\n")
+			} else if relpath, ok := comp["src"].(string); ok {
+				path := GetRelToOpenPath(relpath)
+				fmt.Printf("path: %v\n", path)
+				script, err := os.ReadFile(path)
+				if err != nil {
+					fmt.Printf("Error reading script file: %v\n", err)
+					continue
+				}
+
+				scripts.WriteString(string(script))
 				scripts.WriteString("\n")
 			}
 		}
@@ -134,9 +157,14 @@ func updateDocument(L *lua.LState) int {
 }
 
 func getElement(selector string) UIElement {
+	ObjectsMutex.Lock()
+	defer ObjectsMutex.Unlock()
+
 	for _, obj := range objects {
 		if baseEl, ok := obj.(interface{ GetBaseElement() *BaseElement }); ok {
 			el := baseEl.GetBaseElement()
+			// Add debug print
+			fmt.Printf("Comparing selector '%s' with class '%s'\n", selector, el.Class)
 			if strings.HasPrefix(selector, ".") && el.Class == selector[1:] {
 				return obj.(UIElement)
 			}
@@ -154,26 +182,46 @@ func setEventHandler(L *lua.LState) int {
 	event := L.ToString(2)
 	handler := L.ToString(3)
 
+	fmt.Printf("Registering '%s' event handler for selector '%s'\n", event, selector)
 	if element := getElement(selector); element != nil {
 		if baseEl, ok := element.(interface{ GetBaseElement() *BaseElement }); ok {
 			baseEl.GetBaseElement().SetEventHandler(event, handler)
+			fmt.Printf("Successfully registered event handler\n")
 		}
+	} else {
+		fmt.Printf("Warning: No element found for selector '%s'\n", selector)
 	}
 	return 0
 }
 
 func executeEventHandler(element *BaseElement, event string) {
 	if handler := element.GetEventHandler(event); handler != "" && luaState != nil {
+		fmt.Printf("Found event handler for '%s' event\n", event)
+		fmt.Printf("Executing Lua code: %s\n", handler)
+
 		if err := luaState.DoString(handler); err != nil {
 			fmt.Printf("Error executing event handler: %v\n", err)
+		} else {
+			fmt.Printf("Successfully executed event handler\n")
 		}
+	} else {
+		fmt.Printf("No handler found for '%s' event\n", event)
 	}
+}
+
+// Helper function to setup Lua environment
+func setupLuaEnvironment(L *lua.LState) *lua.LTable {
+	docTable := L.NewTable()
+	L.SetField(docTable, "get", L.NewFunction(getDocumentElement))
+	L.SetField(docTable, "objects", L.NewFunction(getObjects))
+	L.SetField(docTable, "update", L.NewFunction(updateDocument))
+	L.SetField(docTable, "onEvent", L.NewFunction(setEventHandler))
+	return docTable
 }
 
 // MakeWebview now prepares view without creating a new window
 func MakeWebview(jtldoc string) (*Locker, []CanvasObject) {
 	luaState = lua.NewState()
-	defer luaState.Close()
 
 	// Parse JTL document
 	parsedDoc, err := jtl.Parse(jtldoc)
@@ -182,42 +230,26 @@ func MakeWebview(jtldoc string) (*Locker, []CanvasObject) {
 		return nil, nil
 	}
 
-	// Extract scripts
-	combinedScript := extractScripts(parsedDoc)
-
-	// Setup Lua environment
-	docTable := luaState.NewTable()
-	luaState.SetField(docTable, "get", luaState.NewFunction(getDocumentElement))
-	luaState.SetField(docTable, "objects", luaState.NewFunction(getObjects))
-	luaState.SetField(docTable, "update", luaState.NewFunction(updateDocument))
-	luaState.SetGlobal("document", docTable)
-
-	// Add event handling function
-	luaState.SetGlobal("onEvent", luaState.NewFunction(setEventHandler))
-
+	// Create objects first
 	documentMutex.Lock()
 	document = parsedDoc
 	documentMutex.Unlock()
-	objects := ToRaylib(document)
+	objects = ToRaylib(document) // Store in global objects variable
 
-	// Background goroutine for script execution and document updates
+	// Extract and run scripts after objects are created
+	combinedScript := extractScripts(parsedDoc)
+
+	// Setup initial Lua environment
+	docTable := setupLuaEnvironment(luaState)
+	luaState.SetGlobal("document", docTable)
+
+	// Execute script after objects are created and stored
+	if err := luaState.DoString(combinedScript); err != nil {
+		fmt.Printf("Initial script execution error: %v\n", err)
+	}
+
+	// Background goroutine for document updates
 	go func() {
-		scriptL := lua.NewState()
-		defer scriptL.Close()
-
-		// Setup same environment for script execution
-		scriptDocTable := scriptL.NewTable()
-		scriptL.SetField(scriptDocTable, "get", scriptL.NewFunction(getDocumentElement))
-		scriptL.SetField(scriptDocTable, "objects", scriptL.NewFunction(getObjects))
-		scriptL.SetField(scriptDocTable, "update", scriptL.NewFunction(updateDocument))
-		scriptL.SetGlobal("document", scriptDocTable)
-
-		// Execute initial script
-		if err := scriptL.DoString(combinedScript); err != nil {
-			fmt.Printf("Script execution error: %v\n", err)
-		}
-
-		// Watch for document updates
 		for {
 			time.Sleep(1 * time.Second)
 			if documentUpdate.Load() {
@@ -231,7 +263,7 @@ func MakeWebview(jtldoc string) (*Locker, []CanvasObject) {
 				ObjectsMutex.Unlock()
 
 				// Re-run script after document update
-				if err := scriptL.DoString(combinedScript); err != nil {
+				if err := luaState.DoString(combinedScript); err != nil {
 					fmt.Printf("Script re-execution error: %v\n", err)
 				}
 			}
