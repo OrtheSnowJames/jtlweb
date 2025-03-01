@@ -1,0 +1,5 @@
+get message:
+JTLTP-GET=[/index.jtl]
+
+returns:
+JTLTP-STATUS=[200] JTLTP-TYPE=[jtl] JTLTP=MSG=["jtl document goes here"]
