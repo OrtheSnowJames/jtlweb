@@ -1,8 +1,6 @@
 package processjtl
 
 import (
-	"fmt"
-
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -35,7 +33,6 @@ func createButton(content string, x, y, width, height int32, styles map[string]s
 	// Set class and id first
 	if class, ok := styles["class"]; ok {
 		button.Class = class
-		fmt.Printf("Setting button class to: %s\n", class)
 	}
 	if id, ok := styles["id"]; ok {
 		button.ID = id

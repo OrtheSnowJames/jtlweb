@@ -1,8 +1,6 @@
 package processjtl
 
 import (
-	"fmt"
-
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -11,6 +9,7 @@ type Button struct {
 	Text        string
 	Margin      int32
 	OnClick     func()
+	wasPressed  bool // Track if button was previously pressed
 }
 
 func NewButton(text string, x, y, width, height, margin int32, color, borderColor sdl.Color, onClick func()) *Button {
@@ -87,11 +86,22 @@ func (b *Button) GetBaseElement() *BaseElement {
 
 func (b *Button) CheckClick() {
 	x, y, state := sdl.GetMouseState()
-	if state&sdl.ButtonLMask() != 0 {
-		if x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height {
-			fmt.Printf("Button clicked! Class: %s, ID: %s\n", b.Class, b.ID)
-			fmt.Printf("Sending click event to Lua API...\n")
-			executeEventHandler(&b.BaseElement, "click")
+	if x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height {
+		if state&sdl.ButtonLMask() != 0 {
+			// Handle repeating click event
+			executeEventHandler(&b.BaseElement, "clickrepeat")
+
+			// Handle one-time click event only when button wasn't pressed before
+			if !b.wasPressed {
+				executeEventHandler(&b.BaseElement, "click")
+				b.wasPressed = true
+			}
+		} else {
+			// Reset the pressed state when mouse button is released
+			b.wasPressed = false
 		}
+	} else {
+		// Reset the pressed state when mouse leaves button area
+		b.wasPressed = false
 	}
 }

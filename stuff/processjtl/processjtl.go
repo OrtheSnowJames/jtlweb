@@ -163,8 +163,6 @@ func getElement(selector string) UIElement {
 	for _, obj := range objects {
 		if baseEl, ok := obj.(interface{ GetBaseElement() *BaseElement }); ok {
 			el := baseEl.GetBaseElement()
-			// Add debug print
-			fmt.Printf("Comparing selector '%s' with class '%s'\n", selector, el.Class)
 			if strings.HasPrefix(selector, ".") && el.Class == selector[1:] {
 				return obj.(UIElement)
 			}
@@ -182,30 +180,19 @@ func setEventHandler(L *lua.LState) int {
 	event := L.ToString(2)
 	handler := L.ToString(3)
 
-	fmt.Printf("Registering '%s' event handler for selector '%s'\n", event, selector)
 	if element := getElement(selector); element != nil {
 		if baseEl, ok := element.(interface{ GetBaseElement() *BaseElement }); ok {
 			baseEl.GetBaseElement().SetEventHandler(event, handler)
-			fmt.Printf("Successfully registered event handler\n")
 		}
-	} else {
-		fmt.Printf("Warning: No element found for selector '%s'\n", selector)
 	}
 	return 0
 }
 
 func executeEventHandler(element *BaseElement, event string) {
 	if handler := element.GetEventHandler(event); handler != "" && luaState != nil {
-		fmt.Printf("Found event handler for '%s' event\n", event)
-		fmt.Printf("Executing Lua code: %s\n", handler)
-
 		if err := luaState.DoString(handler); err != nil {
 			fmt.Printf("Error executing event handler: %v\n", err)
-		} else {
-			fmt.Printf("Successfully executed event handler\n")
 		}
-	} else {
-		fmt.Printf("No handler found for '%s' event\n", event)
 	}
 }
 
