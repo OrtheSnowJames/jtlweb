@@ -1,0 +1,3 @@
+Avalible fonts:
+    DejaVuSans
+    JetBrainsMono
