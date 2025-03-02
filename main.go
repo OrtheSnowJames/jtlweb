@@ -40,6 +40,7 @@ func main() {
 	// Set the callback to update main objects
 	processjtl.SetUpdateMainObjectsCallback(func(newObjects []processjtl.CanvasObject) {
 		objects = newObjects
+		fmt.Printf("updated on client side \n")
 	})
 
 	textField := processjtl.NewTextField(100, 250, 600, 40,
@@ -100,6 +101,15 @@ func main() {
 						}
 					}
 				}
+			case *sdl.MouseWheelEvent:
+				// take shared.OffY and adjust it by scroll amount
+				shared.OffY += int(e.Y * 30)
+				if shared.OffY > 30 {
+					shared.OffY = 30
+				}
+				if shared.OffY < -1000 { // TODO: make this dynamic
+					shared.OffY = -1000
+				}
 			}
 		}
 
@@ -143,6 +153,9 @@ func readConf() (string, error) {
 
 func drawInputState(textField *processjtl.TextField) {
 	// Draw input prompt text centered above the text field
+	if shared.Debug {
+		textField.Text = "testingpage.jtl"
+	}
 	surface, err := processjtl.Fonts[config["defaultUrlTextboxFont"].(string)].RenderUTF8Blended("Enter JTL file path:",
 		sdl.Color{R: 0, G: 0, B: 0, A: 255})
 	if err == nil {

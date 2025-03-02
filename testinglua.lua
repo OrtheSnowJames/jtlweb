@@ -1,7 +1,9 @@
-function handle() 
-    local x = document.get(".buttonclass")
+function handle()
+    local x = document.create("p")
+    x.text = "Hello World!"
+    print(x.text)
     print(x)
-    x.remove()
+    document.replace(".buttonclass", x)
 end
 
 document.onEvent(".buttonclass", "click", [[handle()]])

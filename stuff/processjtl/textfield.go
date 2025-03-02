@@ -1,6 +1,9 @@
 package processjtl
 
 import (
+	"fmt"
+	"jtlweb/stuff/shared"
+
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -33,7 +36,7 @@ func NewTextField(x, y, width, height int32, color, borderColor sdl.Color) *Text
 }
 
 func (t *TextField) Draw() {
-	rect := &sdl.Rect{X: t.X, Y: t.Y, W: t.Width, H: t.Height}
+	rect := &sdl.Rect{X: t.X + int32(shared.OffX), Y: t.Y + int32(shared.OffY), W: t.Width, H: t.Height}
 
 	// Draw background with proper color handling for focus state
 	if t.Focused {
@@ -65,8 +68,8 @@ func (t *TextField) Draw() {
 			texture, err := Renderer.CreateTextureFromSurface(surface)
 			if err == nil {
 				textRect := &sdl.Rect{
-					X: t.X + 5,
-					Y: t.Y + (t.Height-int32(surface.H))/2,
+					X: t.X + 5 + int32(shared.OffX),
+					Y: t.Y + (t.Height-int32(surface.H))/2 + int32(shared.OffY),
 					W: int32(surface.W),
 					H: int32(surface.H),
 				}
@@ -97,7 +100,7 @@ func (t *TextField) CheckClick() {
 
 	// Only handle mouse press (not release)
 	if state&sdl.ButtonLMask() != 0 {
-		if x >= t.X && x < t.X+t.Width && y >= t.Y && y < t.Y+t.Height {
+		if x >= t.X+int32(shared.OffX) && x < t.X+t.Width+int32(shared.OffX) && y >= t.Y+int32(shared.OffY) && y < t.Y+t.Height+int32(shared.OffY) {
 			t.SetFocus(true)
 			t.Active = true
 		} else {
@@ -133,4 +136,9 @@ func (t *TextField) HandleInput(event *sdl.KeyboardEvent) bool {
 		}
 	}
 	return false
+}
+
+// Implement the String method for TextField
+func (t *TextField) String() string {
+	return fmt.Sprintf("TextField{Text: %s, X: %d, Y: %d, Width: %d, Height: %d}", t.Text, t.X, t.Y, t.Width, t.Height)
 }

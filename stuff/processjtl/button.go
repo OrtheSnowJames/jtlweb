@@ -1,6 +1,9 @@
 package processjtl
 
 import (
+	"fmt"
+	"jtlweb/stuff/shared"
+
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -30,11 +33,11 @@ func NewButton(text string, x, y, width, height, margin int32, color, borderColo
 }
 
 func (b *Button) Draw() {
-	rect := &sdl.Rect{X: b.X, Y: b.Y, W: b.Width, H: b.Height}
+	rect := &sdl.Rect{X: b.X + int32(shared.OffX), Y: b.Y + int32(shared.OffY), W: b.Width, H: b.Height}
 
 	// Draw button background
 	x, y, state := sdl.GetMouseState()
-	isHovered := x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height
+	isHovered := x >= b.X+int32(shared.OffX) && x < b.X+b.Width+int32(shared.OffX) && y >= b.Y+int32(shared.OffY) && y < b.Y+b.Height+int32(shared.OffY)
 
 	if state&sdl.ButtonLMask() != 0 && isHovered {
 		// Darken color when clicked
@@ -70,8 +73,8 @@ func (b *Button) Draw() {
 		texture, err := Renderer.CreateTextureFromSurface(surface)
 		if err == nil {
 			textRect := &sdl.Rect{
-				X: b.X + (b.Width-int32(surface.W))/2,
-				Y: b.Y + (b.Height-int32(surface.H))/2,
+				X: b.X + (b.Width-int32(surface.W))/2 + int32(shared.OffX),
+				Y: b.Y + (b.Height-int32(surface.H))/2 + int32(shared.OffY),
 				W: int32(surface.W),
 				H: int32(surface.H),
 			}
@@ -88,7 +91,7 @@ func (b *Button) GetBaseElement() *BaseElement {
 
 func (b *Button) CheckClick() {
 	x, y, state := sdl.GetMouseState()
-	if x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height {
+	if x >= b.X+int32(shared.OffX) && x < b.X+b.Width+int32(shared.OffX) && y >= b.Y+int32(shared.OffY) && y < b.Y+b.Height+int32(shared.OffY) {
 		if state&sdl.ButtonLMask() != 0 {
 			// Handle repeating click event
 			executeEventHandler(&b.BaseElement, "clickrepeat")
@@ -106,4 +109,9 @@ func (b *Button) CheckClick() {
 		// Reset the pressed state when mouse leaves button area
 		b.wasPressed = false
 	}
+}
+
+// Implement the String method for Button
+func (b *Button) String() string {
+	return fmt.Sprintf("Button{Text: %s, X: %d, Y: %d, Width: %d, Height: %d}", b.Text, b.X, b.Y, b.Width, b.Height)
 }

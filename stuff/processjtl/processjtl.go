@@ -1,6 +1,7 @@
 package processjtl
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,6 +48,7 @@ func (l *Locker) Unlock(obj interface{}) {
 }
 
 var documentStore []map[string]interface{}
+var createdElements []map[string]interface{} // Store created elements
 
 func clearDocuments() {
 	documentStore = make([]map[string]interface{}, 0)
@@ -79,6 +81,35 @@ func removeDocumentByAttribute(key string, value interface{}) {
 	updateObjectsFromDocumentStore()
 }
 
+func replaceDocumentByAttribute(key string, value interface{}, newElement map[string]interface{}) {
+	replaced := false
+	var previousElement map[string]interface{}
+	for i, doc := range documentStore {
+		if docValue, exists := doc[key]; exists && fmt.Sprint(docValue) == fmt.Sprint(value) {
+			previousElement = doc
+			documentStore[i] = newElement
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		documentStore = append(documentStore, newElement)
+	} else if previousElement != nil {
+		// Take the x and y coordinates of the previous element
+		if x, exists := previousElement["x"]; exists {
+			newElement["x"] = x
+		}
+		if y, exists := previousElement["y"]; exists {
+			newElement["y"] = y
+		}
+		// Ensure the Contents field is updated
+		if contents, exists := previousElement["Contents"]; exists {
+			newElement["Contents"] = contents
+		}
+	}
+	updateObjectsFromDocumentStore()
+}
+
 func getAllDocuments() []interface{} {
 	result := make([]interface{}, len(documentStore))
 	for i, doc := range documentStore {
@@ -97,12 +128,14 @@ func updateObjectsFromDocumentStore() {
 	ObjectsMutex.Unlock()
 	fmt.Printf("Objects updated, new length: %d\n", len(objects))
 
-	// Recalculate positions of all objects
-	for i, obj := range objects {
+	// Recalculate positions of all objects and update content height
+	contentHeight := 0
+	for _, obj := range objects {
 		if baseEl, ok := obj.(interface{ GetBaseElement() *BaseElement }); ok {
-			baseEl.GetBaseElement().Y = int32(i * 50) // Example: move each object 50 units down
+			contentHeight += int(baseEl.GetBaseElement().Height) + 20 // Add height and margin
 		}
 	}
+	shared.ContentHeight = contentHeight
 
 	// Call the callback to update main objects
 	if updateMainObjectsCallback != nil {
@@ -151,6 +184,11 @@ func getDocumentElement(L *lua.LState) int {
 		return 0
 	})
 	table.RawSetString("remove", removeFunc)
+
+	// Retrieve the text property of a TextField
+	if textField, ok := docs[0]["text"].(string); ok {
+		table.RawSetString("text", lua.LString(textField))
+	}
 
 	L.Push(table)
 	return 1
@@ -274,6 +312,88 @@ func executeEventHandler(element *BaseElement, event string) {
 	}
 }
 
+// Add document.create, document.add, and document.replace functions
+func createElement(L *lua.LState) int {
+	elementType := L.ToString(1)
+	content := L.ToString(2)
+	styles := L.ToTable(3)
+
+	element := map[string]interface{}{
+		"KEY":      elementType,
+		"Contents": content,
+	}
+
+	if styles != nil {
+		styles.ForEach(func(key, value lua.LValue) {
+			element[key.String()] = value.String()
+		})
+	}
+
+	createdElements = append(createdElements, element)
+	L.Push(MapToLuaTable(L, element))
+	return 1
+}
+
+// Fix x.text (in lua api) not changing to elem.Contents
+func addElement(L *lua.LState) int {
+	element := L.ToTable(1)
+	if element == nil {
+		return 0
+	}
+
+	// Convert Lua table to Go map
+	newElement := luaTableToMap(element)
+
+	// Ensure the Contents field is set correctly
+	if text, ok := newElement["text"].(string); ok {
+		newElement["Contents"] = text
+	}
+
+	// Ensure the KEY field is set correctly
+	if key, ok := newElement["KEY"].(string); !ok || key == "" {
+		newElement["KEY"] = "p" // Default to "p" if KEY is not set
+		fmt.Println("KEY not set, defaulting to 'p'")
+	}
+
+	// json the element
+	jsonElement, err := json.Marshal(newElement)
+	if err != nil {
+		fmt.Printf("Error marshalling element: %v\n", err)
+		return 0
+	}
+	// string the json
+	fmt.Printf("Adding element: %v\n", string(jsonElement))
+	insertDocument(newElement)
+	return 0
+}
+
+func replaceElement(L *lua.LState) int {
+	selector := L.ToString(1)
+	if len(createdElements) == 0 {
+		return 0
+	}
+
+	element := createdElements[len(createdElements)-1]
+	createdElements = createdElements[:len(createdElements)-1]
+
+	var searchKey string
+	var searchVal interface{}
+
+	if strings.HasPrefix(selector, ".") {
+		searchKey = "class"
+		searchVal = selector[1:]
+	} else if strings.HasPrefix(selector, "#") {
+		searchKey = "id"
+		searchVal = selector[1:]
+	} else {
+		searchKey = "KEY"
+		searchVal = selector
+	}
+
+	replaceDocumentByAttribute(searchKey, searchVal, element)
+	return 0
+}
+
 // Helper function to setup Lua environment
 func setupLuaEnvironment(L *lua.LState) *lua.LTable {
 	docTable := L.NewTable()
@@ -281,6 +401,11 @@ func setupLuaEnvironment(L *lua.LState) *lua.LTable {
 	L.SetField(docTable, "objects", L.NewFunction(getObjects))
 	L.SetField(docTable, "update", L.NewFunction(updateDocument))
 	L.SetField(docTable, "onEvent", L.NewFunction(setEventHandler))
+	L.SetField(docTable, "create", L.NewFunction(createElement))
+	L.SetField(docTable, "add", L.NewFunction(addElement))
+	L.SetField(docTable, "replace", L.NewFunction(replaceElement))
+	L.SetField(docTable, "addStyle", L.NewFunction(addStyle))
+	L.SetField(docTable, "removeAllStyle", L.NewFunction(removeAllStyle))
 	return docTable
 }
 
@@ -353,4 +478,29 @@ func luaTableToMap(table *lua.LTable) map[string]interface{} {
 		}
 	})
 	return result
+}
+
+// AddStyle adds a style to an element
+func addStyle(L *lua.LState) int {
+	selector := L.ToString(1)
+	style := L.ToString(2)
+
+	if element := getElement(selector); element != nil {
+		if baseEl, ok := element.(interface{ GetBaseElement() *BaseElement }); ok {
+			baseEl.GetBaseElement().AddStyle(style)
+		}
+	}
+	return 0
+}
+
+// RemoveAllStyle removes all styles from an element
+func removeAllStyle(L *lua.LState) int {
+	selector := L.ToString(1)
+
+	if element := getElement(selector); element != nil {
+		if baseEl, ok := element.(interface{ GetBaseElement() *BaseElement }); ok {
+			baseEl.GetBaseElement().RemoveAllStyle()
+		}
+	}
+	return 0
 }

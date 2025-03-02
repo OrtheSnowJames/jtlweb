@@ -1,6 +1,10 @@
 package processjtl
 
-import "github.com/veandco/go-sdl2/sdl"
+import (
+	"strings"
+
+	"github.com/veandco/go-sdl2/sdl"
+)
 
 // UIElement defines the base interface for all UI elements
 type UIElement interface {
@@ -10,6 +14,9 @@ type UIElement interface {
 	SetPosition(x, y int32)
 	GetSize() (int32, int32)
 	SetSize(width, height int32)
+	String() string // Add String method
+	AddStyle(style string)
+	RemoveAllStyle()
 }
 
 // BaseElement provides common functionality for UI elements
@@ -22,6 +29,7 @@ type BaseElement struct {
 	Class         string
 	ID            string
 	EventHandlers map[string]string
+	Styles        map[string]string // Add Styles map
 }
 
 func (b *BaseElement) GetPosition() (int32, int32) {
@@ -54,4 +62,22 @@ func (b *BaseElement) GetEventHandler(event string) string {
 		return ""
 	}
 	return b.EventHandlers[event]
+}
+
+func (b *BaseElement) AddStyle(style string) {
+	if b.Styles == nil {
+		b.Styles = make(map[string]string)
+	}
+	kv := strings.Split(style, ":")
+	if len(kv) == 2 {
+		key := strings.TrimSpace(kv[0])
+		value := strings.TrimSpace(kv[1])
+		b.Styles[key] = value
+		TranslateStyle(key+":"+value, b)
+	}
+}
+
+func (b *BaseElement) RemoveAllStyle() {
+	b.Styles = make(map[string]string)
+	// Reset to default styles if necessary
 }

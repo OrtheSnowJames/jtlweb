@@ -6,7 +6,19 @@
 
 >>>BEGIN;
     >type="lua"; src="testinglua.lua">script>;
-    >class="buttonclass">button>Test Button;
+    >class="buttonclass">button>self.remove();
 
-    >style="font-family: JetBrainsMono;">p>helo;
+    >style="margin-left: 0;">p>helo;
+    >style="margin-left: 20;">p>helo;
+    >style="margin-left: 40;">p>helo;
+    >style="margin-left: 60;">p>helo;
+    >style="margin-left: 80;">p>helo;
+    >style="margin-left: 100;">p>helo;
+    >style="margin-left: 80;">p>helo;
+    >style="margin-left: 60;">p>helo;
+    >style="margin-left: 40;">p>helo;
+    >style="margin-left: 20;">p>helo;
+    >style="margin-left: 0;">p>helo;
+    >style="margin-left: 20;">p>helo;
+    >style="margin-left: 40;">p>helo;
 >>>END;

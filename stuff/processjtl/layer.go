@@ -27,6 +27,8 @@ func TranslateStyle(style string, element interface{}) {
 			applyTextStyle(key, value, v)
 		case *TextField:
 			applyTextFieldStyle(key, value, v)
+		case *BaseElement:
+			applyBaseElementStyle(key, value, v)
 		}
 	}
 }
@@ -88,9 +90,72 @@ func applyTextFieldStyle(key, value string, tf *TextField) {
 	}
 }
 
+func applyTextStyle(key, value string, text *Text) {
+	switch key {
+	case "font-family":
+		text.SetFontFamily(value)
+	case "width":
+		width, _ := strconv.Atoi(value)
+		text.Width = int32(width)
+	case "height":
+		height, _ := strconv.Atoi(value)
+		text.Height = int32(height)
+	case "margin":
+		margin, _ := strconv.Atoi(value)
+		text.X += int32(margin)
+		text.Y += int32(margin)
+	case "margin-left":
+		margin, _ := strconv.Atoi(value)
+		text.X += int32(margin)
+	case "margin-right":
+		margin, _ := strconv.Atoi(value)
+		text.X -= int32(margin)
+	case "margin-up":
+		margin, _ := strconv.Atoi(value)
+		text.Y += int32(margin)
+	case "margin-down":
+		margin, _ := strconv.Atoi(value)
+		text.Y -= int32(margin)
+	case "center":
+		text.Center = value == "true"
+	}
+}
+
+func applyBaseElementStyle(key, value string, base *BaseElement) {
+	switch key {
+	case "width":
+		width, _ := strconv.Atoi(value)
+		base.Width = int32(width)
+	case "height":
+		height, _ := strconv.Atoi(value)
+		base.Height = int32(height)
+	case "color":
+		colorParts := strings.Split(value, ",")
+		if len(colorParts) == 4 {
+			r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
+			g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
+			b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
+			a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
+			base.Color = sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
+		}
+	case "border-color":
+		colorParts := strings.Split(value, ",")
+		if len(colorParts) == 4 {
+			r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
+			g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
+			b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
+			a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
+			base.BorderColor = sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
+		}
+	case "font-family":
+		base.FontFamily = value
+	}
+}
+
 type CanvasObject interface {
 	Draw()
 	CheckClick()
+	String() string
 }
 
 var objects []CanvasObject
