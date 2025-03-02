@@ -60,6 +60,14 @@ func insertDocument(attributes map[string]interface{}) {
 	updateObjectsFromDocumentStore()
 }
 
+func insertDocumentAt(index int, attributes map[string]interface{}) {
+	if index < 0 || index > len(documentStore) {
+		index = len(documentStore)
+	}
+	documentStore = append(documentStore[:index], append([]map[string]interface{}{attributes}, documentStore[index:]...)...)
+	updateObjectsFromDocumentStore()
+}
+
 func getDocumentsByAttribute(key string, value interface{}) []map[string]interface{} {
 	var results []map[string]interface{}
 	for _, doc := range documentStore {
@@ -82,31 +90,8 @@ func removeDocumentByAttribute(key string, value interface{}) {
 }
 
 func replaceDocumentByAttribute(key string, value interface{}, newElement map[string]interface{}) {
-	replaced := false
-	var previousElement map[string]interface{}
-	for i, doc := range documentStore {
-		if docValue, exists := doc[key]; exists && fmt.Sprint(docValue) == fmt.Sprint(value) {
-			previousElement = doc
-			documentStore[i] = newElement
-			replaced = true
-			break
-		}
-	}
-	if !replaced {
-		documentStore = append(documentStore, newElement)
-	} else if previousElement != nil {
-		// Take the x and y coordinates of the previous element
-		if x, exists := previousElement["x"]; exists {
-			newElement["x"] = x
-		}
-		if y, exists := previousElement["y"]; exists {
-			newElement["y"] = y
-		}
-		// Ensure the Contents field is updated
-		if contents, exists := previousElement["Contents"]; exists {
-			newElement["Contents"] = contents
-		}
-	}
+	removeDocumentByAttribute(key, value)
+	insertDocument(newElement)
 	updateObjectsFromDocumentStore()
 }
 
@@ -312,7 +297,7 @@ func executeEventHandler(element *BaseElement, event string) {
 	}
 }
 
-// Add document.create, document.add, and document.replace functions
+// Add document.create, document.add, document.replace, document.insert, and document.whereis functions
 func createElement(L *lua.LState) int {
 	elementType := L.ToString(1)
 	content := L.ToString(2)
@@ -367,14 +352,59 @@ func addElement(L *lua.LState) int {
 	return 0
 }
 
-func replaceElement(L *lua.LState) int {
-	selector := L.ToString(1)
-	if len(createdElements) == 0 {
+func insertElement(L *lua.LState) int {
+	index := L.ToInt(1)
+	element := L.ToTable(2)
+	if element == nil {
 		return 0
 	}
 
-	element := createdElements[len(createdElements)-1]
-	createdElements = createdElements[:len(createdElements)-1]
+	// Convert Lua table to Go map
+	newElement := luaTableToMap(element)
+
+	// Ensure the Contents field is set correctly
+	if text, ok := newElement["text"].(string); ok {
+		newElement["Contents"] = text
+	}
+
+	// Ensure the KEY field is set correctly
+	if key, ok := newElement["KEY"].(string); !ok || key == "" {
+		newElement["KEY"] = "p" // Default to "p" if KEY is not set
+		fmt.Println("KEY not set, defaulting to 'p'")
+	}
+
+	// json the element
+	jsonElement, err := json.Marshal(newElement)
+	if err != nil {
+		fmt.Printf("Error marshalling element: %v\n", err)
+		return 0
+	}
+	// string the json
+	fmt.Printf("Inserting element at index %d: %v\n", index, string(jsonElement))
+	insertDocumentAt(index-1, newElement) // Lua index starts at 1
+	return 0
+}
+
+func replaceElement(L *lua.LState) int {
+	selector := L.ToString(1)
+	newElement := L.ToTable(2)
+	if newElement == nil {
+		return 0
+	}
+
+	// Convert Lua table to Go map
+	newElementMap := luaTableToMap(newElement)
+
+	// Ensure the Contents field is set correctly
+	if text, ok := newElementMap["text"].(string); ok {
+		newElementMap["Contents"] = text
+	}
+
+	// Ensure the KEY field is set correctly
+	if key, ok := newElementMap["KEY"].(string); !ok || key == "" {
+		newElementMap["KEY"] = "p" // Default to "p" if KEY is not set
+		fmt.Println("KEY not set, defaulting to 'p'")
+	}
 
 	var searchKey string
 	var searchVal interface{}
@@ -390,8 +420,54 @@ func replaceElement(L *lua.LState) int {
 		searchVal = selector
 	}
 
-	replaceDocumentByAttribute(searchKey, searchVal, element)
+	// Find the index of the element to replace
+	index := -1
+	for i, doc := range documentStore {
+		if docValue, exists := doc[searchKey]; exists && fmt.Sprint(docValue) == fmt.Sprint(searchVal) {
+			index = i
+			break
+		}
+	}
+
+	// If the element is found, remove it and insert the new element at the same index
+	if index != -1 {
+		removeDocumentByAttribute(searchKey, searchVal)
+		insertDocumentAt(index, newElementMap)
+	} else {
+		// If the element is not found, just insert the new element
+		insertDocument(newElementMap)
+	}
+
+	updateObjectsFromDocumentStore()
 	return 0
+}
+
+func whereisElement(L *lua.LState) int {
+	selector := L.ToString(1)
+
+	var searchKey string
+	var searchVal interface{}
+
+	if strings.HasPrefix(selector, ".") {
+		searchKey = "class"
+		searchVal = selector[1:]
+	} else if strings.HasPrefix(selector, "#") {
+		searchKey = "id"
+		searchVal = selector[1:]
+	} else {
+		searchKey = "KEY"
+		searchVal = selector
+	}
+
+	for i, doc := range documentStore {
+		if docValue, exists := doc[searchKey]; exists && fmt.Sprint(docValue) == fmt.Sprint(searchVal) {
+			L.Push(lua.LNumber(i + 1)) // Lua index starts at 1
+			return 1
+		}
+	}
+
+	L.Push(lua.LNil)
+	return 1
 }
 
 // Helper function to setup Lua environment
@@ -404,6 +480,8 @@ func setupLuaEnvironment(L *lua.LState) *lua.LTable {
 	L.SetField(docTable, "create", L.NewFunction(createElement))
 	L.SetField(docTable, "add", L.NewFunction(addElement))
 	L.SetField(docTable, "replace", L.NewFunction(replaceElement))
+	L.SetField(docTable, "insert", L.NewFunction(insertElement))
+	L.SetField(docTable, "whereis", L.NewFunction(whereisElement))
 	L.SetField(docTable, "addStyle", L.NewFunction(addStyle))
 	L.SetField(docTable, "removeAllStyle", L.NewFunction(removeAllStyle))
 	return docTable
