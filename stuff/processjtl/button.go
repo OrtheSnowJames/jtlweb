@@ -62,8 +62,10 @@ func (b *Button) Draw() {
 	Renderer.SetDrawColor(b.BorderColor.R, b.BorderColor.G, b.BorderColor.B, b.BorderColor.A)
 	Renderer.DrawRect(rect)
 
-	// Render text
-	surface, err := GetFont(b.FontFamily).RenderUTF8Blended(b.Text, sdl.Color{R: 0, G: 0, B: 0, A: 255})
+	// Render text with fixed font size
+	font := GetFont(b.FontFamily)
+
+	surface, err := font.RenderUTF8Blended(b.Text, sdl.Color{R: 0, G: 0, B: 0, A: 255})
 	if err == nil {
 		texture, err := Renderer.CreateTextureFromSurface(surface)
 		if err == nil {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"jtlweb/stuff/processjtl"
 	"jtlweb/stuff/shared"
+	"os"
 	"path/filepath"
 	"strings"
-	"os"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -78,12 +78,20 @@ func main() {
 							}
 							openPath = textField.Text
 							shared.OpenPath = openPath
+
+							// Clear error handling and debug output
 							winlock, objects = processjtl.MakeWebview(string(content))
 							if winlock != nil {
 							}
-							if objects != nil {
-								state = StateRendering
+							if objects == nil {
+								fmt.Println("No objects created from JTL document")
+								continue
 							}
+
+							fmt.Printf("Created %d objects\n", len(objects))
+							state = StateRendering
+						} else {
+							fmt.Printf("Error reading file: %v\n", err)
 						}
 					}
 				}
@@ -154,9 +162,19 @@ func drawInputState(textField *processjtl.TextField) {
 
 func drawRenderingState(objects []processjtl.CanvasObject) {
 	processjtl.ObjectsMutex.Lock()
-	defer processjtl.ObjectsMutex.Unlock()
+	localObjects := make([]processjtl.CanvasObject, len(objects))
+	copy(localObjects, objects)
+	processjtl.ObjectsMutex.Unlock()
 
-	for _, obj := range objects {
+	if len(localObjects) == 0 {
+		fmt.Println("No objects to draw")
+		return
+	}
+
+	for _, obj := range localObjects {
+		if obj == nil {
+			continue
+		}
 		obj.Draw()
 		obj.CheckClick()
 	}

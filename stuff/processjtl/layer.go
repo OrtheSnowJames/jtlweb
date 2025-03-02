@@ -31,13 +31,6 @@ func TranslateStyle(style string, element interface{}) {
 	}
 }
 
-func applyTextStyle(key, value string, text *Text) {
-	switch key {
-	case "font-family":
-		text.SetFontFamily(value)
-	}
-}
-
 func applyButtonStyle(key, value string, button *Button) {
 	switch key {
 	case "width":
@@ -105,11 +98,8 @@ var objects []CanvasObject
 // Says to raylib, but really i was too lazy to rename it.
 func ToRaylib(jtlcomps []interface{}) []CanvasObject {
 	result := make([]CanvasObject, 0)
-	w, h := Window.GetSize()
-	screenWidth := float32(w)
-	screenHeight := float32(h)
-	yOffset := float32(20)
-	margin := screenWidth * 0.02
+	yOffset := int32(20)
+	margin := int32(20) // Fixed margin instead of screen-relative
 
 	for _, elem := range jtlcomps {
 		comp, ok := elem.(map[string]interface{})
@@ -138,12 +128,13 @@ func ToRaylib(jtlcomps []interface{}) []CanvasObject {
 			parsedStyles["id"] = id
 		}
 
-		width := int32(screenWidth * 0.25)
-		height := int32(screenHeight * 0.08)
+		// Use fixed dimensions instead of screen-relative
+		width := int32(200) // Fixed width
+		height := int32(40) // Fixed height
 
 		if element := CreateElement(key, content,
-			int32(margin), int32(yOffset),
-			width, height, parsedStyles); element != nil {
+			margin, yOffset,
+			width, height, parsedStyles, 14); element != nil { // Use fixed font size
 
 			// Debug print
 			if baseEl, ok := element.(interface{ GetBaseElement() *BaseElement }); ok {
@@ -151,7 +142,7 @@ func ToRaylib(jtlcomps []interface{}) []CanvasObject {
 			}
 
 			result = append(result, element.(CanvasObject))
-			yOffset += float32(height) + (screenHeight * 0.02)
+			yOffset += height + 20 // Fixed spacing
 		}
 	}
 

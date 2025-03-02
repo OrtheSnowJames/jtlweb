@@ -12,28 +12,37 @@ func MapToLuaTable(L *lua.LState, m map[string]interface{}) *lua.LTable {
 	table := L.NewTable()
 
 	for key, value := range m {
-		switch v := value.(type) {
-		case string:
-			table.RawSetString(key, lua.LString(v))
-		case int:
-			table.RawSetString(key, lua.LNumber(v))
-		case float64:
-			table.RawSetString(key, lua.LNumber(v))
-		case bool:
-			table.RawSetString(key, lua.LBool(v))
-		case []interface{}:
-			// Convert slice to Lua table
-			arrayTable := L.NewTable()
-			for i, item := range v {
-				arrayTable.RawSetInt(i+1, convertToLuaValue(L, item))
-			}
-			table.RawSetString(key, arrayTable)
-		case map[string]interface{}:
-			// Recursively convert nested map
-			table.RawSetString(key, MapToLuaTable(L, v))
+		switch key {
+		case "Contents":
+			// Make Contents accessible as .text
+			table.RawSetString("text", lua.LString(value.(string)))
+			// Also keep original Contents field
+			table.RawSetString("Contents", lua.LString(value.(string)))
 		default:
-			// Set nil for unsupported types
-			table.RawSetString(key, lua.LNil)
+			// Regular value conversion
+			switch v := value.(type) {
+			case string:
+				table.RawSetString(key, lua.LString(v))
+			case int:
+				table.RawSetString(key, lua.LNumber(v))
+			case float64:
+				table.RawSetString(key, lua.LNumber(v))
+			case bool:
+				table.RawSetString(key, lua.LBool(v))
+			case []interface{}:
+				// Convert slice to Lua table
+				arrayTable := L.NewTable()
+				for i, item := range v {
+					arrayTable.RawSetInt(i+1, convertToLuaValue(L, item))
+				}
+				table.RawSetString(key, arrayTable)
+			case map[string]interface{}:
+				// Recursively convert nested map
+				table.RawSetString(key, MapToLuaTable(L, v))
+			default:
+				// Set nil for unsupported types
+				table.RawSetString(key, lua.LNil)
+			}
 		}
 	}
 

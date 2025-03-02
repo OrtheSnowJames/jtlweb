@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"jtlweb/stuff/shared"
 
@@ -45,37 +44,96 @@ func (l *Locker) Unlock(obj interface{}) {
 	<-l.lock
 }
 
+var documentStore []map[string]interface{}
+
+func clearDocuments() {
+	documentStore = make([]map[string]interface{}, 0)
+	updateObjectsFromDocumentStore()
+}
+
+func insertDocument(attributes map[string]interface{}) {
+	documentStore = append(documentStore, attributes)
+	updateObjectsFromDocumentStore()
+}
+
+func getDocumentsByAttribute(key string, value interface{}) []map[string]interface{} {
+	var results []map[string]interface{}
+	for _, doc := range documentStore {
+		if docValue, exists := doc[key]; exists && fmt.Sprint(docValue) == fmt.Sprint(value) {
+			results = append(results, doc)
+		}
+	}
+	return results
+}
+
+func removeDocumentByAttribute(key string, value interface{}) {
+	newDocs := make([]map[string]interface{}, 0)
+	for _, doc := range documentStore {
+		if docValue, exists := doc[key]; !exists || fmt.Sprint(docValue) != fmt.Sprint(value) {
+			newDocs = append(newDocs, doc)
+		}
+	}
+	documentStore = newDocs
+	updateObjectsFromDocumentStore()
+}
+
+func getAllDocuments() []interface{} {
+	result := make([]interface{}, len(documentStore))
+	for i, doc := range documentStore {
+		result[i] = doc
+	}
+	return result
+}
+
+func updateObjectsFromDocumentStore() {
+	documentMutex.Lock()
+	document = getAllDocuments()
+	documentMutex.Unlock()
+	newObjects := ToRaylib(document)
+	ObjectsMutex.Lock()
+	objects = newObjects
+	ObjectsMutex.Unlock()
+	fmt.Printf("Objects updated, new length: %d\n", len(objects))
+}
+
 // getDocumentElement retrieves an element by class, ID, or key
 func getDocumentElement(L *lua.LState) int {
 	id := L.ToString(1)
+	fmt.Printf("Searching for element with id: %s\n", id)
 
-	for _, elem := range document {
-		elemMap, ok := elem.(map[string]interface{})
-		if !ok {
-			continue
-		}
+	var docs []map[string]interface{}
+	var searchKey string
+	var searchVal interface{}
 
-		if strings.HasPrefix(id, ".") {
-			if class, ok := elemMap["class"].(string); ok && class == id[1:] {
-				L.Push(MapToLuaTable(L, elemMap))
-				return 1
-			}
-		}
-
-		if strings.HasPrefix(id, "#") {
-			if elemID, ok := elemMap["id"].(string); ok && elemID == id[1:] {
-				L.Push(MapToLuaTable(L, elemMap))
-				return 1
-			}
-		}
-
-		if key, ok := elemMap["KEY"].(string); ok && key == id {
-			L.Push(MapToLuaTable(L, elemMap))
-			return 1
-		}
+	if strings.HasPrefix(id, ".") {
+		searchKey = "class"
+		searchVal = id[1:]
+	} else if strings.HasPrefix(id, "#") {
+		searchKey = "id"
+		searchVal = id[1:]
+	} else {
+		searchKey = "KEY"
+		searchVal = id
 	}
 
-	L.Push(lua.LNil)
+	docs = getDocumentsByAttribute(searchKey, searchVal)
+	if len(docs) == 0 {
+		L.Push(lua.LNil)
+		return 1
+	}
+
+	// Convert all document attributes directly to Lua table
+	table := MapToLuaTable(L, docs[0])
+
+	// Immediately update objects on removal:
+	removeFunc := L.NewFunction(func(L *lua.LState) int {
+		removeDocumentByAttribute(searchKey, searchVal)
+		updateObjectsFromDocumentStore() // Ensure objects are updated immediately
+		return 0
+	})
+	table.RawSetString("remove", removeFunc)
+
+	L.Push(table)
 	return 1
 }
 
@@ -152,6 +210,7 @@ func updateDocument(L *lua.LState) int {
 	document = docArray
 	documentMutex.Unlock()
 	documentUpdate.Store(true)
+	updateObjectsFromDocumentStore() // Ensure objects are updated immediately
 
 	return 0
 }
@@ -217,11 +276,32 @@ func MakeWebview(jtldoc string) (*Locker, []CanvasObject) {
 		return nil, nil
 	}
 
-	// Create objects first
-	documentMutex.Lock()
-	document = parsedDoc
-	documentMutex.Unlock()
-	objects = ToRaylib(document) // Store in global objects variable
+	fmt.Printf("Parsed %d JTL components\n", len(parsedDoc))
+
+	// Clear existing documents
+	clearDocuments()
+
+	// Store in memory
+	for _, elem := range parsedDoc {
+		if elemMap, ok := elem.(map[string]interface{}); ok {
+			insertDocument(elemMap)
+		}
+	}
+
+	// Create objects from all documents
+	allDocs := getAllDocuments()
+	if len(allDocs) == 0 {
+		fmt.Println("No documents retrieved from database")
+		return nil, nil
+	}
+
+	objects = ToRaylib(allDocs)
+	if len(objects) == 0 {
+		fmt.Println("No objects created from documents")
+		return nil, nil
+	}
+
+	fmt.Printf("Created %d objects\n", len(objects))
 
 	// Extract and run scripts after objects are created
 	combinedScript := extractScripts(parsedDoc)
@@ -234,28 +314,6 @@ func MakeWebview(jtldoc string) (*Locker, []CanvasObject) {
 	if err := luaState.DoString(combinedScript); err != nil {
 		fmt.Printf("Initial script execution error: %v\n", err)
 	}
-
-	// Background goroutine for document updates
-	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-			if documentUpdate.Load() {
-				documentUpdate.Store(false)
-				documentMutex.RLock()
-				newObjects := ToRaylib(document)
-				documentMutex.RUnlock()
-
-				ObjectsMutex.Lock()
-				objects = newObjects
-				ObjectsMutex.Unlock()
-
-				// Re-run script after document update
-				if err := luaState.DoString(combinedScript); err != nil {
-					fmt.Printf("Script re-execution error: %v\n", err)
-				}
-			}
-		}
-	}()
 
 	return newLocker(objects), objects
 }

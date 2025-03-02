@@ -10,14 +10,15 @@ import (
 )
 
 var (
-	Window   *sdl.Window
-	Renderer *sdl.Renderer
-	Fonts    map[string]*ttf.Font
+	Window      *sdl.Window
+	Renderer    *sdl.Renderer
+	Fonts       map[string]*ttf.Font
+	FontsBySize map[string]map[int]*ttf.Font // Cache fonts by family and size
 )
 
 const (
 	pathtoassets    = "/assets/"
-	defaultFontSize = 14
+	defaultFontSize = 20
 )
 
 func InitSDL() error {
@@ -45,6 +46,7 @@ func InitSDL() error {
 
 	// Initialize fonts map
 	Fonts = make(map[string]*ttf.Font)
+	FontsBySize = make(map[string]map[int]*ttf.Font)
 
 	exeDir, err := GetExeDir()
 	if err != nil {
@@ -66,7 +68,43 @@ func InitSDL() error {
 	return nil
 }
 
+// GetFontWithSize returns a font with the specified size
+func GetFontWithSize(fontFamily string, size int) *ttf.Font {
+	// Check if we have this font family and size cached
+	if familyCache, ok := FontsBySize[fontFamily]; ok {
+		if font, ok := familyCache[size]; ok {
+			return font
+		}
+	} else {
+		FontsBySize[fontFamily] = make(map[int]*ttf.Font)
+	}
+
+	// Load new font with specified size
+	exeDir, err := GetExeDir()
+	if err != nil {
+		return GetFont(fontFamily) // fallback to default size
+	}
+
+	font, err := ttf.OpenFont(fmt.Sprintf("%s%s%s.ttf", exeDir, pathtoassets, fontFamily), size)
+	if err != nil {
+		return GetFont(fontFamily) // fallback to default size
+	}
+
+	// Cache the new font
+	FontsBySize[fontFamily][size] = font
+	return font
+}
+
 func CleanupSDL() {
+	// Clean up sized fonts
+	for _, familyCache := range FontsBySize {
+		for _, font := range familyCache {
+			if font != nil {
+				font.Close()
+			}
+		}
+	}
+
 	for _, font := range Fonts {
 		if font != nil {
 			font.Close()

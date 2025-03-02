@@ -4,7 +4,7 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type ElementCreator func(content string, x, y, width, height int32, styles map[string]string) UIElement
+type ElementCreator func(content string, x, y, width, height int32, styles map[string]string, baseFontSize int32) UIElement
 
 var elementCreators = map[string]ElementCreator{
 	"button":    createButton,
@@ -16,15 +16,15 @@ func RegisterElement(elementType string, creator ElementCreator) {
 	elementCreators[elementType] = creator
 }
 
-func CreateElement(elementType string, content string, x, y, width, height int32, styles map[string]string) UIElement {
+func CreateElement(elementType string, content string, x, y, width, height int32, styles map[string]string, baseFontSize int32) UIElement {
 	creator, exists := elementCreators[elementType]
 	if !exists {
 		return nil
 	}
-	return creator(content, x, y, width, height, styles)
+	return creator(content, x, y, width, height, styles, baseFontSize)
 }
 
-func createButton(content string, x, y, width, height int32, styles map[string]string) UIElement {
+func createButton(content string, x, y, width, height int32, styles map[string]string, baseFontSize int32) UIElement {
 	button := NewButton(content, x, y, width, height, 20,
 		sdl.Color{R: 200, G: 200, B: 200, A: 255},
 		sdl.Color{R: 100, G: 100, B: 100, A: 255},
@@ -48,7 +48,7 @@ func createButton(content string, x, y, width, height int32, styles map[string]s
 }
 
 // Add createTextField function
-func createTextField(content string, x, y, width, height int32, styles map[string]string) UIElement {
+func createTextField(content string, x, y, width, height int32, styles map[string]string, baseFontSize int32) UIElement {
 	textField := NewTextField(x, y, width, height,
 		sdl.Color{R: 255, G: 255, B: 255, A: 255},
 		sdl.Color{R: 100, G: 100, B: 100, A: 255})
@@ -61,8 +61,8 @@ func createTextField(content string, x, y, width, height int32, styles map[strin
 }
 
 // Add createText function
-func createText(content string, x, y, width, height int32, styles map[string]string) UIElement {
-	text := NewText(content, x, y, int32(float32(height)*0.6),
+func createText(content string, x, y, width, height int32, styles map[string]string, baseFontSize int32) UIElement {
+	text := NewText(content, x, y, baseFontSize,
 		sdl.Color{R: 0, G: 0, B: 0, A: 255})
 
 	for key, value := range styles {

@@ -99,3 +99,5 @@ Shared types across files:
 - interface UIElement
 - struct BaseElement
 - interface CanvasObject
+
+CSS - conversions.go
