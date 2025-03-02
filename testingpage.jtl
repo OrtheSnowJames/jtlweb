@@ -8,5 +8,5 @@
     >type="lua"; src="testinglua.lua">script>;
     >class="buttonclass">button>Test Button;
 
-    >style="font-family: JetBrainsMono; center: true;">p>helo;
+    >style="font-family: JetBrainsMono;">p>helo;
 >>>END;

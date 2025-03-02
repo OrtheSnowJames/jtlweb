@@ -37,6 +37,11 @@ func main() {
 	var objects []processjtl.CanvasObject
 	var winlock *processjtl.Locker
 
+	// Set the callback to update main objects
+	processjtl.SetUpdateMainObjectsCallback(func(newObjects []processjtl.CanvasObject) {
+		objects = newObjects
+	})
+
 	textField := processjtl.NewTextField(100, 250, 600, 40,
 		sdl.Color{R: 255, G: 255, B: 255, A: 255},
 		sdl.Color{R: 100, G: 100, B: 100, A: 255})

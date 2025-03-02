@@ -21,6 +21,8 @@ var documentMutex sync.RWMutex
 var ObjectsMutex sync.Mutex
 var luaState *lua.LState
 
+var updateMainObjectsCallback func([]CanvasObject)
+
 // Custom mutex-like Locker
 type Locker struct {
 	object interface{}
@@ -94,6 +96,23 @@ func updateObjectsFromDocumentStore() {
 	objects = newObjects
 	ObjectsMutex.Unlock()
 	fmt.Printf("Objects updated, new length: %d\n", len(objects))
+
+	// Recalculate positions of all objects
+	for i, obj := range objects {
+		if baseEl, ok := obj.(interface{ GetBaseElement() *BaseElement }); ok {
+			baseEl.GetBaseElement().Y = int32(i * 50) // Example: move each object 50 units down
+		}
+	}
+
+	// Call the callback to update main objects
+	if updateMainObjectsCallback != nil {
+		updateMainObjectsCallback(objects)
+	}
+}
+
+// SetUpdateMainObjectsCallback sets the callback function to update main objects
+func SetUpdateMainObjectsCallback(callback func([]CanvasObject)) {
+	updateMainObjectsCallback = callback
 }
 
 // getDocumentElement retrieves an element by class, ID, or key
