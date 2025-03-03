@@ -9,7 +9,6 @@ import (
 )
 
 func TranslateStyle(style string, element interface{}) {
-	// Split style into key-value pairs
 	styleParts := strings.Split(style, ";")
 	for _, part := range styleParts {
 		kv := strings.Split(part, ":")
@@ -20,135 +19,107 @@ func TranslateStyle(style string, element interface{}) {
 		key := strings.TrimSpace(kv[0])
 		value := strings.TrimSpace(kv[1])
 
-		switch v := element.(type) {
-		case *Button:
-			applyButtonStyle(key, value, v)
-		case *Text:
-			applyTextStyle(key, value, v)
-		case *TextField:
-			applyTextFieldStyle(key, value, v)
-		case *BaseElement:
-			applyBaseElementStyle(key, value, v)
-		}
-	}
-}
+		switch key {
+		case "width":
+			width, _ := strconv.Atoi(value)
+			switch e := element.(type) {
+			case *Button:
+				e.Width = int32(width)
+			case *Text:
+				e.Width = int32(width)
+			case *TextField:
+				e.Width = int32(width)
+			case *BaseElement:
+				e.Width = int32(width)
+			}
 
-func applyButtonStyle(key, value string, button *Button) {
-	switch key {
-	case "width":
-		width, _ := strconv.Atoi(value)
-		button.Width = int32(width)
-	case "height":
-		height, _ := strconv.Atoi(value)
-		button.Height = int32(height)
-	case "color":
-		colorParts := strings.Split(value, ",")
-		if len(colorParts) == 4 {
-			r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
-			g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
-			b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
-			a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
-			button.Color = sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
-		}
-	case "border-color":
-		colorParts := strings.Split(value, ",")
-		if len(colorParts) == 4 {
-			r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
-			g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
-			b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
-			a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
-			button.BorderColor = sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
-		}
-	case "margin":
-		margin, _ := strconv.Atoi(value)
-		button.Margin = int32(margin)
-	case "padding":
-		padding, _ := strconv.Atoi(value)
-		button.Margin = int32(padding)
-	}
-}
+		case "height":
+			height, _ := strconv.Atoi(value)
+			switch e := element.(type) {
+			case *Button:
+				e.Height = int32(height)
+			case *Text:
+				e.Height = int32(height)
+			case *TextField:
+				e.Height = int32(height)
+			case *BaseElement:
+				e.Height = int32(height)
+			}
 
-func applyTextFieldStyle(key, value string, tf *TextField) {
-	switch key {
-	case "width":
-		width, _ := strconv.Atoi(value)
-		tf.Width = int32(width)
-	case "height":
-		height, _ := strconv.Atoi(value)
-		tf.Height = int32(height)
-	case "color":
-		colorParts := strings.Split(value, ",")
-		if len(colorParts) == 4 {
-			r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
-			g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
-			b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
-			a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
-			tf.Color = sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
-		}
-	case "font-family":
-		tf.FontFamily = value
-	}
-}
+		case "color":
+			colorParts := strings.Split(value, ",")
+			if len(colorParts) == 4 {
+				r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
+				g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
+				b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
+				a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
+				color := sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
 
-func applyTextStyle(key, value string, text *Text) {
-	switch key {
-	case "font-family":
-		text.SetFontFamily(value)
-	case "width":
-		width, _ := strconv.Atoi(value)
-		text.Width = int32(width)
-	case "height":
-		height, _ := strconv.Atoi(value)
-		text.Height = int32(height)
-	case "margin":
-		margin, _ := strconv.Atoi(value)
-		text.X += int32(margin)
-		text.Y += int32(margin)
-	case "margin-left":
-		margin, _ := strconv.Atoi(value)
-		text.X += int32(margin)
-	case "margin-right":
-		margin, _ := strconv.Atoi(value)
-		text.X -= int32(margin)
-	case "margin-up":
-		margin, _ := strconv.Atoi(value)
-		text.Y += int32(margin)
-	case "margin-down":
-		margin, _ := strconv.Atoi(value)
-		text.Y -= int32(margin)
-	case "center":
-		text.Center = value == "true"
-	}
-}
+				switch e := element.(type) {
+				case *Button:
+					e.Color = color
+				case *TextField:
+					e.Color = color
+				case *BaseElement:
+					e.Color = color
+				}
+			}
 
-func applyBaseElementStyle(key, value string, base *BaseElement) {
-	switch key {
-	case "width":
-		width, _ := strconv.Atoi(value)
-		base.Width = int32(width)
-	case "height":
-		height, _ := strconv.Atoi(value)
-		base.Height = int32(height)
-	case "color":
-		colorParts := strings.Split(value, ",")
-		if len(colorParts) == 4 {
-			r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
-			g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
-			b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
-			a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
-			base.Color = sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
+		case "border-color":
+			colorParts := strings.Split(value, ",")
+			if len(colorParts) == 4 {
+				r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
+				g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
+				b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
+				a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
+				color := sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
+
+				switch e := element.(type) {
+				case *Button:
+					e.BorderColor = color
+				case *TextField:
+					e.BorderColor = color
+				case *BaseElement:
+					e.BorderColor = color
+				}
+			}
+
+		case "font-family":
+			switch e := element.(type) {
+			case *Text:
+				e.SetFontFamily(value)
+			case *TextField:
+				e.FontFamily = value
+			case *BaseElement:
+				e.FontFamily = value
+			}
+
+		case "margin", "padding":
+			margin, _ := strconv.Atoi(value)
+			if button, ok := element.(*Button); ok {
+				button.Margin = int32(margin)
+			}
+
+		case "margin-left", "margin-right", "margin-up", "margin-down":
+			margin, _ := strconv.Atoi(value)
+			if text, ok := element.(*Text); ok {
+				switch key {
+				case "margin-left":
+					text.X += int32(margin)
+				case "margin-right":
+					text.X -= int32(margin)
+				case "margin-up":
+					text.Y += int32(margin)
+				case "margin-down":
+					text.Y -= int32(margin)
+				}
+			}
+
+		case "center":
+			if text, ok := element.(*Text); ok {
+				text.Center = value == "true"
+			}
 		}
-	case "border-color":
-		colorParts := strings.Split(value, ",")
-		if len(colorParts) == 4 {
-			r, _ := strconv.Atoi(strings.TrimSpace(colorParts[0]))
-			g, _ := strconv.Atoi(strings.TrimSpace(colorParts[1]))
-			b, _ := strconv.Atoi(strings.TrimSpace(colorParts[2]))
-			a, _ := strconv.Atoi(strings.TrimSpace(colorParts[3]))
-			base.BorderColor = sdl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
-		}
-	case "font-family":
-		base.FontFamily = value
 	}
 }
 
