@@ -19,9 +19,19 @@ func TranslateStyle(style string, element interface{}) {
 		key := strings.TrimSpace(kv[0])
 		value := strings.TrimSpace(kv[1])
 
+		// Get window dimensions for percentage calculations
+		windowWidth, windowHeight := Window.GetSize()
+
 		switch key {
 		case "width":
-			width, _ := strconv.Atoi(value)
+			var width int
+			if strings.HasSuffix(value, "%") {
+				percentage, _ := strconv.Atoi(strings.TrimSuffix(value, "%"))
+				width = int(float64(windowWidth) * float64(percentage) / 100.0)
+			} else {
+				width, _ = strconv.Atoi(value)
+			}
+
 			switch e := element.(type) {
 			case *Button:
 				e.Width = int32(width)
@@ -34,7 +44,14 @@ func TranslateStyle(style string, element interface{}) {
 			}
 
 		case "height":
-			height, _ := strconv.Atoi(value)
+			var height int
+			if strings.HasSuffix(value, "%") {
+				percentage, _ := strconv.Atoi(strings.TrimSuffix(value, "%"))
+				height = int(float64(windowHeight) * float64(percentage) / 100.0)
+			} else {
+				height, _ = strconv.Atoi(value)
+			}
+
 			switch e := element.(type) {
 			case *Button:
 				e.Height = int32(height)
@@ -95,17 +112,32 @@ func TranslateStyle(style string, element interface{}) {
 			}
 
 		case "margin", "padding":
-			margin, _ := strconv.Atoi(value)
+			var margin int
+			if strings.HasSuffix(value, "%") {
+				percentage, _ := strconv.Atoi(strings.TrimSuffix(value, "%"))
+				margin = int(float64(windowWidth) * float64(percentage) / 100.0)
+			} else {
+				margin, _ = strconv.Atoi(value)
+			}
+
 			if button, ok := element.(*Button); ok {
 				button.Margin = int32(margin)
 			}
 
 		case "margin-left", "margin-right", "margin-up", "margin-down":
-			margin, _ := strconv.Atoi(value)
+			var margin int
+			if strings.HasSuffix(value, "%") {
+				percentage, _ := strconv.Atoi(strings.TrimSuffix(value, "%"))
+				windowWidth, _ := Window.GetSize()
+				margin = int(float64(windowWidth) * float64(percentage) / 100.0)
+			} else {
+				margin, _ = strconv.Atoi(value)
+			}
+
 			if text, ok := element.(*Text); ok {
 				switch key {
 				case "margin-left":
-					text.X += int32(margin)
+					text.X = int32(margin) // Set absolute position instead of adding
 				case "margin-right":
 					text.X -= int32(margin)
 				case "margin-up":
@@ -119,6 +151,26 @@ func TranslateStyle(style string, element interface{}) {
 			if text, ok := element.(*Text); ok {
 				text.Center = value == "true"
 			}
+
+		case "rotate":
+			angle, _ := strconv.ParseFloat(value, 64)
+			switch e := element.(type) {
+			case *Button:
+				e.Rotation = angle
+			case *Text:
+				e.Rotation = angle
+			case *TextField:
+				e.Rotation = angle
+			case *BaseElement:
+				e.Rotation = angle
+			}
+		}
+	}
+
+	// After applying style to the element, apply to children if they exist
+	if baseEl, ok := element.(interface{ GetBaseElement() *BaseElement }); ok {
+		for _, child := range baseEl.GetBaseElement().Children {
+			TranslateStyle(style, child)
 		}
 	}
 }
@@ -131,7 +183,7 @@ type CanvasObject interface {
 
 var objects []CanvasObject
 
-// Says to raylib, but really i was too lazy to rename it.
+// Says to raylib, but really i was too lazy to rename it to ToSDL2.
 func ToRaylib(jtlcomps []interface{}) []CanvasObject {
 	result := make([]CanvasObject, 0)
 	yOffset := int32(20)

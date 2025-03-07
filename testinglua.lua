@@ -1,9 +1,7 @@
-function handle()
-    local x = document.create("p")
-    x.text = "Hello World!"
-    print(x.text)
-    print(x)
-    document.replace(".buttonclass", x)
-end
+local divelem = document.get("div")
 
-document.onEvent(".buttonclass", "click", [[handle()]])
+local divelems = div.children -- returns an array table of all children of the div element
+
+for i, elem in ipairs(divelems) do
+    print(elem.text)
+end

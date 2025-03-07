@@ -27,3 +27,6 @@ local x = document.get("p") -- assuming you want to get the first p element in t
 print(x.text)
 x.text = "i have magically changed"
 ```
+
+elem.class: String of class name.
+elem.identifier: String of id.

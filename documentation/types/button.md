@@ -33,3 +33,6 @@ end
 
 document.onEvent(".buttonclass", "clickrepeat", [[handleralso()]])
 ```
+
+elem.class: String of class name.
+elem.identifier: String of id.

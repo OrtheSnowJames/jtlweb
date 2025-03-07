@@ -6,10 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"jtlweb/stuff/jtltp"
 	"jtlweb/stuff/shared"
 
 	"github.com/OrtheSnowJames/jtl"
@@ -21,6 +23,9 @@ var documentUpdate atomic.Bool
 var documentMutex sync.RWMutex
 var ObjectsMutex sync.Mutex
 var luaState *lua.LState
+var Site string
+var frameHandler string          // Add this at the top with other vars
+var requestedFrameHandler string // Add this at the top with other vars
 
 var updateMainObjectsCallback func([]CanvasObject)
 
@@ -177,6 +182,15 @@ func getDocumentElement(L *lua.LState) int {
 
 	L.Push(table)
 	return 1
+}
+
+// GetDocumentElements retrieves all elements in a class or with the same key
+func GetDocumentElements(classkey string) []map[string]interface{} {
+	if strings.HasPrefix(classkey, ".") {
+		return getDocumentsByAttribute("class", classkey[1:])
+	} else {
+		return getDocumentsByAttribute("KEY", classkey)
+	}
 }
 
 // getObjects retrieves the objects as a Lua table
@@ -484,7 +498,35 @@ func setupLuaEnvironment(L *lua.LState) *lua.LTable {
 	L.SetField(docTable, "whereis", L.NewFunction(whereisElement))
 	L.SetField(docTable, "addStyle", L.NewFunction(addStyle))
 	L.SetField(docTable, "removeAllStyle", L.NewFunction(removeAllStyle))
+	L.SetField(docTable, "fetch", L.NewFunction(luaWrapFetch))
+	L.SetField(docTable, "onFrame", L.NewFunction(setFrameHandler))
+	L.SetField(docTable, "requestFrame", L.NewFunction(setRequestFrameHandler))
 	return docTable
+}
+
+func luaWrapFetch(L *lua.LState) int {
+	// get what to get at ("here")
+	selector := L.ToString(1)
+
+	resp, err := jtltp.JtltpFetch(Site, selector)
+	if err != nil {
+		fmt.Printf("Error fetching: %v\n", err)
+		return 0
+	}
+
+	// convert to lua table: has {"JTLTP-STATUS": 200 (hopefully), "JTLTP-TYPE": "jtl", "JTLTP": ">>>DOCTYPE JTL..."}
+	respTable := L.NewTable()
+	statusint, err := strconv.Atoi(resp["JTLTP-STATUS"])
+	if err != nil {
+		fmt.Printf("Error converting status to int: %v\n", err)
+		return 0
+	}
+
+	respTable.RawSetString("JTLTP-STATUS", lua.LNumber(statusint))
+	respTable.RawSetString("JTLTP-TYPE", lua.LString(resp["JTLTP-TYPE"]))
+	respTable.RawSetString("JTLTP-MSG", lua.LString(resp["JTLTP"]))
+	L.Push(respTable)
+	return 1
 }
 
 // MakeWebview now prepares view without creating a new window
@@ -531,31 +573,13 @@ func MakeWebview(jtldoc string) (*Locker, []CanvasObject) {
 	// Setup initial Lua environment
 	docTable := setupLuaEnvironment(luaState)
 	luaState.SetGlobal("document", docTable)
-
+	Site = ""
 	// Execute script after objects are created and stored
 	if err := luaState.DoString(combinedScript); err != nil {
 		fmt.Printf("Initial script execution error: %v\n", err)
 	}
 
 	return newLocker(objects), objects
-}
-
-// Helper function to convert Lua table to Go map
-func luaTableToMap(table *lua.LTable) map[string]interface{} {
-	result := make(map[string]interface{})
-	table.ForEach(func(key, value lua.LValue) {
-		switch v := value.(type) {
-		case lua.LString:
-			result[key.String()] = string(v)
-		case lua.LNumber:
-			result[key.String()] = float64(v)
-		case lua.LBool:
-			result[key.String()] = bool(v)
-		case *lua.LTable:
-			result[key.String()] = luaTableToMap(v)
-		}
-	})
-	return result
 }
 
 // AddStyle adds a style to an element
@@ -581,4 +605,64 @@ func removeAllStyle(L *lua.LState) int {
 		}
 	}
 	return 0
+}
+
+// Add this new function
+func executeFrameHandler() {
+	if frameHandler != "" && luaState != nil {
+		if err := luaState.DoString(frameHandler); err != nil {
+			fmt.Printf("Error executing frame handler: %v\n", err)
+		}
+	}
+}
+
+// Add this new function
+func executeRequestedFrameHandler() {
+	if requestedFrameHandler != "" && luaState != nil {
+		if err := luaState.DoString(requestedFrameHandler); err != nil {
+			fmt.Printf("Error executing frame handler: %v\n", err)
+		}
+		requestedFrameHandler = "" // Clear after execution
+	}
+}
+
+// Add this new function
+func setFrameHandler(L *lua.LState) int {
+	handler := L.ToString(1)
+	frameHandler = handler
+	return 0
+}
+
+// Add this new function
+func setRequestFrameHandler(L *lua.LState) int {
+	handler := L.ToString(1)
+	requestedFrameHandler = handler
+	return 0
+}
+
+// Modify drawRenderingState to include frame handler execution
+func drawRenderingState(objects []CanvasObject) {
+	ObjectsMutex.Lock()
+	localObjects := make([]CanvasObject, len(objects))
+	copy(localObjects, objects)
+	ObjectsMutex.Unlock()
+
+	if len(localObjects) == 0 {
+		fmt.Println("No objects to draw")
+		return
+	}
+
+	// Execute frame handler before drawing objects
+	executeFrameHandler()
+
+	// Execute requested frame handler before drawing objects
+	executeRequestedFrameHandler()
+
+	for _, obj := range localObjects {
+		if obj == nil {
+			continue
+		}
+		obj.Draw()
+		obj.CheckClick()
+	}
 }

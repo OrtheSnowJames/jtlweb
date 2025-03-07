@@ -6,4 +6,7 @@ ex:
 ```jtl
 >src="script.lua">script>;
 ```
-This lets you run lua from a jtl page.P
+This lets you run lua from a jtl page.
+
+elem.class: String of class name.
+elem.identifier: String of id.

@@ -6,19 +6,19 @@
 
 >>>BEGIN;
     >type="lua"; src="testinglua.lua">script>;
-    >class="buttonclass">button>self.remove();
-
-    >style="margin-left: 0;">p>helo;
-    >style="margin-left: 20;">p>helo;
-    >style="margin-left: 40;">p>helo;
-    >style="margin-left: 60;">p>helo;
-    >style="margin-left: 80;">p>helo;
-    >style="margin-left: 100;">p>helo;
-    >style="margin-left: 80;">p>helo;
-    >style="margin-left: 60;">p>helo;
-    >style="margin-left: 40;">p>helo;
-    >style="margin-left: 20;">p>helo;
-    >style="margin-left: 0;">p>helo;
-    >style="margin-left: 20;">p>helo;
-    >style="margin-left: 40;">p>helo;
+    >style="margin-left=50">div>
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+        >class="textclass" noattribute="true">p>helo;
+    >noattribute="true">p>ending here;
 >>>END;

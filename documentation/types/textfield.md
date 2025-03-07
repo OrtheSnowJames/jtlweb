@@ -20,3 +20,6 @@ local x = document.get("#mytextfield")
 print(x.text)
 x.text = "i have magically changed"
 ```
+
+elem.class: String of class name.
+elem.identifier: String of id.

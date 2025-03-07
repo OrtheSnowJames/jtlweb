@@ -14,6 +14,7 @@ import (
 
 type AppState int
 
+var displayError string
 var config map[string]interface{}
 var openPath string
 
@@ -72,33 +73,44 @@ func main() {
 				if e.Keysym.Sym == sdl.K_ESCAPE && state == StateRendering {
 					state = StateInput
 					textField.Text = ""
+					displayError = "" // Clear any previous error
+					// Reset window size and update TextField position
+					w, h := processjtl.Window.GetSize()
+					textField.X = int32(w)/2 - textField.Width/2
+					textField.Y = int32(h)/2 - textField.Height/2
 				} else if state == StateInput {
 					if textField.HandleInput(e) {
 						// Handle file loading
 						content, err := os.ReadFile(textField.Text)
-						if err == nil {
-							textField.Text, err = getFullPath(textField.Text)
-							if err != nil {
-								fmt.Println("Error getting full path: ", err)
-								continue
-							}
-							openPath = textField.Text
-							shared.OpenPath = openPath
-
-							// Clear error handling and debug output
-							winlock, objects = processjtl.MakeWebview(string(content))
-							if winlock != nil {
-							}
-							if objects == nil {
-								fmt.Println("No objects created from JTL document")
-								continue
-							}
-
-							fmt.Printf("Created %d objects\n", len(objects))
-							state = StateRendering
-						} else {
+						if err != nil {
 							fmt.Printf("Error reading file: %v\n", err)
+							displayError = fmt.Sprintf("Error reading file: %v", err)
+							continue
 						}
+
+						textField.Text, err = getFullPath(textField.Text)
+						if err != nil {
+							fmt.Println("Error getting full path: ", err)
+							displayError = fmt.Sprintf("Error getting full path: %v", err)
+							continue
+						}
+
+						openPath = textField.Text
+						shared.OpenPath = openPath
+						displayError = "" // Clear error on success
+
+						// Clear error handling and debug output
+						winlock, objects = processjtl.MakeWebview(string(content))
+						if winlock != nil {
+						}
+						if objects == nil {
+							displayError = "No objects created from JTL document"
+							fmt.Println(displayError)
+							continue
+						}
+
+						fmt.Printf("Created %d objects\n", len(objects))
+						state = StateRendering
 					}
 				}
 			case *sdl.MouseWheelEvent:
@@ -170,6 +182,26 @@ func drawInputState(textField *processjtl.TextField) {
 			}
 			textField.FontFamily = config["defaultUrlTextboxFont"].(string)
 			processjtl.Renderer.Copy(texture, nil, textRect)
+			// draw displayError
+			if displayError != "" {
+				errorSurface, err := processjtl.Fonts[config["defaultUrlTextboxFont"].(string)].RenderUTF8Blended(displayError,
+					sdl.Color{R: 255, G: 0, B: 0, A: 255})
+				if err == nil {
+					errorTexture, err := processjtl.Renderer.CreateTextureFromSurface(errorSurface)
+					if err == nil {
+						w, _ := processjtl.Window.GetSize()
+						errorRect := &sdl.Rect{
+							X: int32(w)/2 - int32(errorSurface.W)/2,
+							Y: textField.Y + textField.Height + 10, // Position below textfield with 10px gap
+							W: int32(errorSurface.W),
+							H: int32(errorSurface.H),
+						}
+						processjtl.Renderer.Copy(errorTexture, nil, errorRect)
+						errorTexture.Destroy()
+					}
+					errorSurface.Free()
+				}
+			}
 			texture.Destroy()
 		}
 		surface.Free()

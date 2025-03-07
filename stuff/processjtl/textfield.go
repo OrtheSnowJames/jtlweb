@@ -13,6 +13,7 @@ type TextField struct {
 	Active   bool
 	Focused  bool
 	OnSubmit func(string)
+	Rotation float64 // Add Rotation field
 }
 
 func NewTextField(x, y, width, height int32, color, borderColor sdl.Color) *TextField {
@@ -36,47 +37,115 @@ func NewTextField(x, y, width, height int32, color, borderColor sdl.Color) *Text
 }
 
 func (t *TextField) Draw() {
-	rect := &sdl.Rect{X: t.X + int32(shared.OffX), Y: t.Y + int32(shared.OffY), W: t.Width, H: t.Height}
+	if t.Rotation != 0 {
+		texture, err := Renderer.CreateTexture(sdl.PIXELFORMAT_RGBA8888,
+			sdl.TEXTUREACCESS_TARGET, t.Width, t.Height)
+		if err != nil {
+			return
+		}
+		defer texture.Destroy()
 
-	// Draw background with proper color handling for focus state
-	if t.Focused {
-		// Lighten color when focused
-		Renderer.SetDrawColor(
-			uint8(min(255, float64(t.Color.R)*1.1)),
-			uint8(min(255, float64(t.Color.G)*1.1)),
-			uint8(min(255, float64(t.Color.B)*1.1)),
-			t.Color.A,
-		)
-	} else {
-		Renderer.SetDrawColor(t.Color.R, t.Color.G, t.Color.B, t.Color.A)
-	}
-	Renderer.FillRect(rect)
+		// Set render target to texture
+		prevTarget := Renderer.GetRenderTarget()
+		Renderer.SetRenderTarget(texture)
+		Renderer.SetDrawColor(240, 240, 240, 255)
+		Renderer.Clear()
 
-	// Draw border
-	if t.Focused {
-		// redify border when active
-		Renderer.SetDrawColor(255, 0, 0, 255)
-	} else {
-		Renderer.SetDrawColor(t.BorderColor.R, t.BorderColor.G, t.BorderColor.B, t.BorderColor.A)
-	}
-	Renderer.DrawRect(rect)
+		// Draw textfield contents to texture
+		rect := &sdl.Rect{X: 0, Y: 0, W: t.Width, H: t.Height}
+		if t.Focused {
+			Renderer.SetDrawColor(
+				uint8(min(255, float64(t.Color.R)*1.1)),
+				uint8(min(255, float64(t.Color.G)*1.1)),
+				uint8(min(255, float64(t.Color.B)*1.1)),
+				t.Color.A,
+			)
+		} else {
+			Renderer.SetDrawColor(t.Color.R, t.Color.G, t.Color.B, t.Color.A)
+		}
+		Renderer.FillRect(rect)
 
-	// Render text
-	if t.Text != "" {
-		surface, err := GetFont(t.FontFamily).RenderUTF8Blended(t.Text, sdl.Color{R: 0, G: 0, B: 0, A: 255})
-		if err == nil {
-			texture, err := Renderer.CreateTextureFromSurface(surface)
+		// Draw border
+		if t.Focused {
+			Renderer.SetDrawColor(255, 0, 0, 255)
+		} else {
+			Renderer.SetDrawColor(t.BorderColor.R, t.BorderColor.G, t.BorderColor.B, t.BorderColor.A)
+		}
+		Renderer.DrawRect(rect)
+
+		// Render text
+		if t.Text != "" {
+			surface, err := GetFont(t.FontFamily).RenderUTF8Blended(t.Text, sdl.Color{R: 0, G: 0, B: 0, A: 255})
 			if err == nil {
-				textRect := &sdl.Rect{
-					X: t.X + 5 + int32(shared.OffX),
-					Y: t.Y + (t.Height-int32(surface.H))/2 + int32(shared.OffY),
-					W: int32(surface.W),
-					H: int32(surface.H),
+				texture, err := Renderer.CreateTextureFromSurface(surface)
+				if err == nil {
+					textRect := &sdl.Rect{
+						X: 5,
+						Y: (t.Height - int32(surface.H)) / 2,
+						W: int32(surface.W),
+						H: int32(surface.H),
+					}
+					Renderer.Copy(texture, nil, textRect)
+					texture.Destroy()
 				}
-				Renderer.Copy(texture, nil, textRect)
-				texture.Destroy()
+				surface.Free()
 			}
-			surface.Free()
+		}
+
+		// Reset target and draw rotated texture
+		Renderer.SetRenderTarget(prevTarget)
+		dstRect := &sdl.Rect{
+			X: t.X + int32(shared.OffX),
+			Y: t.Y + int32(shared.OffY),
+			W: t.Width,
+			H: t.Height,
+		}
+		texture.SetBlendMode(sdl.BLENDMODE_BLEND)
+		Renderer.CopyEx(texture, nil, dstRect, t.Rotation, nil, sdl.FLIP_NONE)
+	} else {
+		// Original non-rotated drawing code
+		rect := &sdl.Rect{X: t.X + int32(shared.OffX), Y: t.Y + int32(shared.OffY), W: t.Width, H: t.Height}
+
+		// Draw background with proper color handling for focus state
+		if t.Focused {
+			// Lighten color when focused
+			Renderer.SetDrawColor(
+				uint8(min(255, float64(t.Color.R)*1.1)),
+				uint8(min(255, float64(t.Color.G)*1.1)),
+				uint8(min(255, float64(t.Color.B)*1.1)),
+				t.Color.A,
+			)
+		} else {
+			Renderer.SetDrawColor(t.Color.R, t.Color.G, t.Color.B, t.Color.A)
+		}
+		Renderer.FillRect(rect)
+
+		// Draw border
+		if t.Focused {
+			// redify border when active
+			Renderer.SetDrawColor(255, 0, 0, 255)
+		} else {
+			Renderer.SetDrawColor(t.BorderColor.R, t.BorderColor.G, t.BorderColor.B, t.BorderColor.A)
+		}
+		Renderer.DrawRect(rect)
+
+		// Render text
+		if t.Text != "" {
+			surface, err := GetFont(t.FontFamily).RenderUTF8Blended(t.Text, sdl.Color{R: 0, G: 0, B: 0, A: 255})
+			if err == nil {
+				texture, err := Renderer.CreateTextureFromSurface(surface)
+				if err == nil {
+					textRect := &sdl.Rect{
+						X: t.X + 5 + int32(shared.OffX),
+						Y: t.Y + (t.Height-int32(surface.H))/2 + int32(shared.OffY),
+						W: int32(surface.W),
+						H: int32(surface.H),
+					}
+					Renderer.Copy(texture, nil, textRect)
+					texture.Destroy()
+				}
+				surface.Free()
+			}
 		}
 	}
 }

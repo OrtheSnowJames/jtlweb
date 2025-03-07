@@ -10,6 +10,7 @@ var elementCreators = map[string]ElementCreator{
 	"button":    createButton,
 	"p":         createText,
 	"textfield": createTextField,
+	"div":       createDiv, // Add div creator
 }
 
 func RegisterElement(elementType string, creator ElementCreator) {
@@ -21,7 +22,27 @@ func CreateElement(elementType string, content string, x, y, width, height int32
 	if !exists {
 		return nil
 	}
-	return creator(content, x, y, width, height, styles, baseFontSize)
+
+	element := creator(content, x, y, width, height, styles, baseFontSize)
+
+	// If children exist in the interface (from JTL parser)
+	if baseEl, ok := element.(interface{ GetBaseElement() *BaseElement }); ok {
+		// Apply parent's styles to all children (with lower priority)
+		for key, value := range styles {
+			if key != "class" && key != "id" {
+				for _, child := range baseEl.GetBaseElement().Children {
+					// Only apply style if child doesn't already have it
+					if childBase, ok := child.(interface{ GetBaseElement() *BaseElement }); ok {
+						if _, exists := childBase.GetBaseElement().Styles[key]; !exists {
+							child.AddStyle(key + ":" + value)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return element
 }
 
 func createButton(content string, x, y, width, height int32, styles map[string]string, baseFontSize int32) UIElement {
@@ -69,4 +90,26 @@ func createText(content string, x, y, width, height int32, styles map[string]str
 		TranslateStyle(key+":"+value, text)
 	}
 	return text
+}
+
+// Add createDiv function
+func createDiv(content string, x, y, width, height int32, styles map[string]string, baseFontSize int32) UIElement {
+	div := NewDiv(x, y, width, height)
+
+	// Set class and id if present
+	if class, ok := styles["class"]; ok {
+		div.Class = class
+	}
+	if id, ok := styles["id"]; ok {
+		div.ID = id
+	}
+
+	// Apply styles
+	for key, value := range styles {
+		if key != "class" && key != "id" {
+			TranslateStyle(key+":"+value, div)
+		}
+	}
+
+	return div
 }

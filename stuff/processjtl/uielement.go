@@ -30,6 +30,8 @@ type BaseElement struct {
 	ID            string
 	EventHandlers map[string]string
 	Styles        map[string]string // Add Styles map
+	Rotation      float64
+	Children      []UIElement
 }
 
 func (b *BaseElement) GetPosition() (int32, int32) {
@@ -80,4 +82,12 @@ func (b *BaseElement) AddStyle(style string) {
 func (b *BaseElement) RemoveAllStyle() {
 	b.Styles = make(map[string]string)
 	// Reset to default styles if necessary
+}
+
+func (b *BaseElement) AddChild(child UIElement) {
+	b.Children = append(b.Children, child)
+}
+
+func (b *BaseElement) GetChildren() []UIElement {
+	return b.Children
 }
